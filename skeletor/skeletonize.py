@@ -42,8 +42,8 @@ def skeletonize_dense(segmentation, voxel_size=None, object_ids=None,
 
     # make boundaries and compute distances
     # TODO use 2d or 3d boundaries ?
-    boundaries = utils.make_2d_boundaries(segmentation)
-    boundary_distances = distance_transform_edt(boundaries, sampling=voxel_size)
+    boundary_distances = utils.make_2d_boundaries(segmentation)
+    boundary_distances = distance_transform_edt(boundary_distances, sampling=voxel_size)
 
     # skeletonize the objects in the segmentation
     slices = find_objects(segmentation)
@@ -57,8 +57,6 @@ def skeletonize_dense(segmentation, voxel_size=None, object_ids=None,
         obj = segmentation[slice_]
         obj = obj == obj_id
         inner_distances = boundary_distances[slice_]
-        inner_distances = (obj * inner_distances).astype('float32')
-
         skeleton = skeletonize(obj, inner_distances, **teasar_parameter)
 
         # TODO offset the skeleton ids with the bb offset
@@ -89,20 +87,24 @@ def skeletonize(obj, boundary_distances, voxel_size=None,
     if voxel_size is None:
         voxel_size = [1, 1, 1]
 
-    # compute root node (= boundary node most distant from most central node)
-    root = find_root(obj, voxel_size)
+    # compute root node (= node most distance from some boundary node)
+    print("Compute root voxel")
+    root, initial_dist = find_root(obj, voxel_size, return_dist=True)
+    print("Found root voxel", root)
 
     # compute distance fields for the edge distance field:
-    # boundary distances: set outside voxel to inf
-    boundary_distances[boundary_distances == 0] = np.inf
     # distances to root voxel
     root_distances = nskel.euclidean_distance(obj, root, voxel_size)
+    return root_distances, initial_dist
 
     # compute the penalized edge distance map
     edge_distances = compute_edge_distances(boundary_distances, root_distances,
                                             penalty_scale, penalty_exponent)
+    # set distances outside of the object to inf
+    edge_distances[np.logical_not(obj)] = np.inf
 
     # compute all skeleton paths
+    print("Compute paths")
     skel_paths = compute_paths(boundary_distances, root_distances, edge_distances,
                                obj, root, voxel_size, mask_scale, mask_min_radius)
 
@@ -116,7 +118,8 @@ def compute_paths(boundary_distances, root_distances, edge_distances, obj, root,
     """ Compute the skeleton paths
     """
 
-    valid_labels = np.conunt_nonzero(obj)
+    valid_labels = np.count_nonzero(obj)
+    # TODO instead of appending, keep list of unique coordinates in paths
     paths = []
     # keep extracting labels until all piels are explained
     # by a skeleton
@@ -124,13 +127,20 @@ def compute_paths(boundary_distances, root_distances, edge_distances, obj, root,
 
         # find the next target and compute the path to it
         target = np.unravel_index(np.argmax(root_distances), root_distances.shape)
-        path = nskel.dijkstra(edge_distances, root, target)
+        print("Dijsktra to", target)
+        path = nskel.dijkstra(edge_distances, root, list(target))
+        print("done")
 
         # mask all pixels that are explained by this path
+        # TODO path contains coordinates that are already part of prev. path
+        # remove them before computing the path mask
+        print("Path mask")
         path_mask = nskel.compute_path_mask(obj, boundary_distances, path,
                                             mask_scale, mask_min_radius, voxel_size)
+        print("done")
+        path_mask = path_mask.reshape(obj.shape)
         obj[path_mask] = 0
-        root_distances[path_mask] = 0
+        root_distances[path_mask] = 0.
 
         # set distances along the path to zero
         edge_distances[path] = 0.
@@ -141,18 +151,22 @@ def compute_paths(boundary_distances, root_distances, edge_distances, obj, root,
     return path
 
 
-def find_root(obj, voxel_size):
+def find_root(obj, voxel_size, return_dist=False):
     """ Find a root node for teasar.
 
-    The root node can be ANY boundary node maximally
+    The root node can be ANY node maximally
     distant from some other boundary node.
     """
     # find any voxel on the boundary
     source_vox = nskel.boundary_voxel(obj)
+    print("from source voxel ...", source_vox)
     # compute the distance to this voxel and find the furthest voxel (= root)
     distance = nskel.euclidean_distance(obj, source_vox, voxel_size)
     root = np.unravel_index(np.argmax(distance), distance.shape)
-    return root
+    if return_dist:
+        return list(root), distance
+    else:
+        return list(root)
 
 
 def compute_edge_distances(boundary_distances, root_distances,
