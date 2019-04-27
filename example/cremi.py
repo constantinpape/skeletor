@@ -4,6 +4,7 @@ import skeletor
 from scipy.ndimage import distance_transform_edt
 from skeletor.utils import make_2d_boundaries
 from cremi_tools.viewer.volumina import view
+from scipy.ndimage.morphology import binary_dilation
 
 
 def cremi_single_skeleton(bb=np.s_[:]):
@@ -30,13 +31,21 @@ def cremi_single_skeleton(bb=np.s_[:]):
     boundary_distances = distance_transform_edt(boundaries, sampling=voxel_size)
 
     print("Skeletonize ...")
-    d1, d2 = skeletor.skeletonize(obj, boundary_distances,
-                                  voxel_size=voxel_size)
+    d1, d2, root, src = skeletor.skeletonize(obj, boundary_distances,
+                                             voxel_size=voxel_size)
+    vol1 = np.zeros_like(d1, dtype='uint32')
+    vol1[root[0], root[1], root[2]] = 1
+    vol1 = binary_dilation(vol1, iterations=2)
+
+    vol2 = np.zeros_like(d1, dtype='uint32')
+    vol2[src[0], src[1], src[2]] = 1
+    vol2 = binary_dilation(vol2, iterations=2)
     # print(skel.min(), skel.max())
-    view([raw, obj.astype('uint32'), d1, d2])
+    view([raw, obj.astype('uint32'), d1, d2, vol1, vol2],
+         ['raw', 'obj', 'root-dist', 'initial-dist', 'root', 'src'])
 
 
 if __name__ == '__main__':
     # bb = np.s_[:30, :512, :512]
-    bb = np.s_[:10, :256, :256]
+    bb = np.s_[:5, :256, :256]
     cremi_single_skeleton(bb)

@@ -88,14 +88,11 @@ def skeletonize(obj, boundary_distances, voxel_size=None,
         voxel_size = [1, 1, 1]
 
     # compute root node (= node most distance from some boundary node)
-    print("Compute root voxel")
-    root, initial_dist = find_root(obj, voxel_size, return_dist=True)
-    print("Found root voxel", root)
+    root = find_root(obj, voxel_size)
 
     # compute distance fields for the edge distance field:
     # distances to root voxel
     root_distances = nskel.euclidean_distance(obj, root, voxel_size)
-    return root_distances, initial_dist
 
     # compute the penalized edge distance map
     edge_distances = compute_edge_distances(boundary_distances, root_distances,
@@ -135,7 +132,7 @@ def compute_paths(boundary_distances, root_distances, edge_distances, obj, root,
         # TODO path contains coordinates that are already part of prev. path
         # remove them before computing the path mask
         print("Path mask")
-        path_mask = nskel.compute_path_mask(obj, boundary_distances, path,
+        path_mask = nskel.compute_path_mask(boundary_distances, path,
                                             mask_scale, mask_min_radius, voxel_size)
         print("done")
         path_mask = path_mask.reshape(obj.shape)
@@ -143,6 +140,7 @@ def compute_paths(boundary_distances, root_distances, edge_distances, obj, root,
         root_distances[path_mask] = 0.
 
         # set distances along the path to zero
+        # FIXME the path gets out of range oO
         edge_distances[path] = 0.
 
         valid_labels -= path_mask.sum()
@@ -159,7 +157,6 @@ def find_root(obj, voxel_size, return_dist=False):
     """
     # find any voxel on the boundary
     source_vox = nskel.boundary_voxel(obj)
-    print("from source voxel ...", source_vox)
     # compute the distance to this voxel and find the furthest voxel (= root)
     distance = nskel.euclidean_distance(obj, source_vox, voxel_size)
     root = np.unravel_index(np.argmax(distance), distance.shape)
@@ -183,5 +180,4 @@ def compute_edge_distances(boundary_distances, root_distances,
 
     # add the distance from root contribution
     edge_distances += (root_distances / root_distances.max())
-
     return edge_distances
