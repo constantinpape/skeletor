@@ -1,8 +1,5 @@
 import numpy as np
-from scipy.ndimage.morphology import distance_transform_edt
-from scipy.ndimage import find_objects
-import nifty.skeletons as nskel
-from . import utils
+from kimimaro.trace import trace
 
 
 def apply_mask(segmentation, object_ids, in_place):
@@ -29,6 +26,7 @@ def skeletonize_dense(segmentation, voxel_size=None, object_ids=None,
     Keyword Arguments:
         teasar_parameter - parameter for the teasar skeletonization:
     """
+    raise NotImplementedError("TODO")
 
     if object_ids is not None:
         segmentation = apply_mask(segmentation, object_ids, in_place)
@@ -68,116 +66,32 @@ def skeletonize_dense(segmentation, voxel_size=None, object_ids=None,
 
 
 def skeletonize(obj, boundary_distances, voxel_size=None,
-                penalty_scale=5000., penalty_exponent=16,
-                mask_scale=10., mask_min_radius=10.):
+                penalty_scale=100000, penalty_exponent=4,
+                mask_scale=10, mask_min_radius=50):
     """ Skeletonize segmentation object with TEASAR.
 
     Arguments:
         obj [np.ndarray] - binary object mask
         boundary_distances [np.ndarray] - distance to object boundaries
-        voxel_size [int, float or list] - size of the voxels,
+        voxel_size [int, float or list] - size of the voxels in physical units,
             can be list for anisotropic input (default: None)
         penalty_scale [float] - scale to weight boundary distance vs.
-            root distance contributrion to edge distance (default: 5000)
-        penalty_exponent [int] - exponent in edge distance calculation (default: 16)
+            root distance contributrion to edge distance (default: 10000)
+        penalty_exponent [int] - exponent in edge distance calculation (default: 4)
         mask_scale [float] - multiple of boundary distance used in path masking (default: 10)
-        mask_min_radius [float] - minimal radius used in path masking (default: 10)
+        mask_min_radius [float] - minimal radius used in path masking (default: 50)
     """
 
     if voxel_size is None:
         voxel_size = [1, 1, 1]
+    if isinstance(voxel_size, int):
+        voxel_size = 3 * [voxel_size]
 
-    # compute root node (= node most distance from some boundary node)
-    root = find_root(obj, voxel_size)
-
-    # compute distance fields for the edge distance field:
-    # distances to root voxel
-    root_distances = nskel.euclidean_distance(obj, root, voxel_size)
-
-    # compute the penalized edge distance map
-    edge_distances = compute_edge_distances(boundary_distances, root_distances,
-                                            penalty_scale, penalty_exponent)
-    # set distances outside of the object to inf
-    edge_distances[np.logical_not(obj)] = np.inf
-
-    # compute all skeleton paths
-    print("Compute paths")
-    skel_paths = compute_paths(boundary_distances, root_distances, edge_distances,
-                               obj, root, voxel_size, mask_scale, mask_min_radius)
-
-    # TODO extract actual skeleton
-    return skel_paths
-
-
-# TODO introduce pruning / early stopping !
-def compute_paths(boundary_distances, root_distances, edge_distances, obj, root,
-                  voxel_size, mask_scale, mask_min_radius):
-    """ Compute the skeleton paths
-    """
-
-    valid_labels = np.count_nonzero(obj)
-    # TODO instead of appending, keep list of unique coordinates in paths
-    paths = []
-    # keep extracting labels until all piels are explained
-    # by a skeleton
-    while valid_labels > 0:
-
-        # find the next target and compute the path to it
-        target = np.unravel_index(np.argmax(root_distances), root_distances.shape)
-        print("Dijsktra to", target)
-        path = nskel.dijkstra(edge_distances, root, list(target))
-        print("done")
-
-        # mask all pixels that are explained by this path
-        # TODO path contains coordinates that are already part of prev. path
-        # remove them before computing the path mask
-        print("Path mask")
-        path_mask = nskel.compute_path_mask(boundary_distances, path,
-                                            mask_scale, mask_min_radius, voxel_size)
-        print("done")
-        path_mask = path_mask.reshape(obj.shape)
-        obj[path_mask] = 0
-        root_distances[path_mask] = 0.
-
-        # set distances along the path to zero
-        # FIXME the path gets out of range oO
-        edge_distances[path] = 0.
-
-        valid_labels -= path_mask.sum()
-        paths.append(path)
-
-    return path
-
-
-def find_root(obj, voxel_size, return_dist=False):
-    """ Find a root node for teasar.
-
-    The root node can be ANY node maximally
-    distant from some other boundary node.
-    """
-    # find any voxel on the boundary
-    source_vox = nskel.boundary_voxel(obj)
-    # compute the distance to this voxel and find the furthest voxel (= root)
-    distance = nskel.euclidean_distance(obj, source_vox, voxel_size)
-    root = np.unravel_index(np.argmax(distance), distance.shape)
-    if return_dist:
-        return list(root), distance
-    else:
-        return list(root)
-
-
-def compute_edge_distances(boundary_distances, root_distances,
-                           penalty_scale, penalty_exponent):
-    """ Compute the penalized edge distances.
-    """
-
-    # compute the boundary distance contribution
-    bd_max = boundary_distances.max() ** 1.01
-    edge_distances = (1. - boundary_distances / bd_max) ** penalty_exponent
-
-    # weight by the scale
-    edge_distances *= penalty_scale
-
-    # add the distance from root contribution
-    edge_distances += (root_distances / root_distances.max())
-    return edge_distances
+    # TODO trace has some more parameters, mainly for soma detection
+    # for now, I leave it at the defaults, but would be nice to enable setting this
+    # skeletonize the object with kimimaro.trace
+    skel = trace(obj, boundary_distances, scale=mask_scale, const=mask_min_radius,
+                 anisotropy=voxel_size, pdrf_scale=penalty_scale, pdrf_exponent=penalty_exponent)
+    nodes = skel.vertices
+    # return the node coordinate list and the edges from the skeleton
+    return nodes.astype('uint64'), skel.edges

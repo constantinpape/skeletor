@@ -1,1 +1,1 @@
-from .skeletonize import skeletonize_dense, skeletonize
+from .skeletonize import skeletonize

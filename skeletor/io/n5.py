@@ -1,12 +1,4 @@
 import numpy as np
-from skan import csr
-
-#
-# Parser for custom n5 skeleton format
-# TODO
-# get rid of skan
-# adjust to in-memory skeleton format returned by `skeletonize`
-#
 
 
 def read_n5(ds, skel_id):
@@ -43,7 +35,7 @@ def read_n5(ds, skel_id):
     return coords, edges
 
 
-def write_n5(ds, skel_id, skel_vol, coordinate_offset=None):
+def write_n5(ds, skel_id, nodes, edges, coordinate_offset=None):
     """ Write skeleton to custom n5-based format
 
     The skeleton data is stored via varlen chunks: each chunk contains
@@ -54,36 +46,19 @@ def write_n5(ds, skel_id, skel_vol, coordinate_offset=None):
     Arguments:
         ds [z5py.Dataset]: output dataset
         skel_id [int]: id of the object corresponding to the skeleton
-        skel_vol [np.ndarray]: binary volume containing the skeleton
+        nodes [np.ndarray]: node coordinates
+        edges [np.ndarray]: edges
         coordinate_offset [listlike]: offset to coordinate (default: None)
     """
-    # NOTE looks like skan function names are about to change in 0.8:
-    # csr.numba_csgraph -> csr.csr_to_nbgraph
-    # extract the skeleton graph
-
-    # this may fail for small skeletons with a value-error
-    try:
-        pix_graph, coords, _ = csr.skeleton_to_csgraph(skel_vol)
-    except ValueError:
-        return
-    graph = csr.numba_csgraph(pix_graph)
-
-    # skan-indexing is 1 based, so we need to get rid of first coordinate row
-    coords = coords[1:]
     # check if we have offset and add up if we do
     if coordinate_offset is not None:
         assert len(coordinate_offset) == 3
-        coords += coordinate_offset
+        nodes += np.array(coordinate_offset)
 
     # make serialization for number of points and coordinates
-    n_points = coords.shape[0]
+    n_points = nodes.shape[0]
     data = [np.array([n_points]), coords.flatten()]
 
-    # make edges
-    edges = [[u, v] for u in range(1, n_points + 1) for v in graph.neighbors(u) if u < v]
-    edges = np.array(edges)
-    # substract 1 to change to zero-based indexing
-    edges -= 1
     # add number of edges and edges to the serialization
     n_edges = len(edges)
     data.extend([np.array([n_edges]), edges.flatten()])

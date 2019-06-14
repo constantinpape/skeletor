@@ -50,7 +50,7 @@ def read_coords_from_nml(nml):
         coords = []
         for node_elem in node_elems:
             x, y, z = parse_attributes(node_elem,
-                                       [['x', int], ['y', int], ['z', int]])
+                                       [['x', float], ['y', float], ['z', float]])
             # TODO is this stored in physical coordinates?
             # need to transform appropriately
             coords.append([z, y, x])
