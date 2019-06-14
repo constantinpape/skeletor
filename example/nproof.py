@@ -1,10 +1,9 @@
 import h5py
 import numpy as np
-import skeletor
-import edt
 import vigra
+
+import skeletor
 from cremi_tools.viewer.volumina import view
-from scipy.ndimage.morphology import binary_dilation
 
 
 def fib_single_skeleton(bb=np.s_[:]):
@@ -31,27 +30,13 @@ def fib_single_skeleton(bb=np.s_[:]):
     raw = raw[bb]
     # view([seg.astype('uint32'), obj.astype('uint32')])
 
-    print("Compute distance trafo ...")
-    voxel_size = [8, 8, 8]
-    boundary_distances = edt.edt(seg, anisotropy=voxel_size,
-                                 black_border=False, order='C',
-                                 parallel=1)
-    boundary_distances = obj * boundary_distances
-
     print("Skeletonize ...")
-    nodes, edges = skeletor.skeletonize(obj, boundary_distances, voxel_size=voxel_size)
-
-    print(len(nodes))
-    print(len(edges))
-    print(edges.max())
-    # print(nodes)
-    # return
+    resolution = 8
+    nodes, edges = skeletor.skeletonize(obj, resolution=resolution)
 
     node_coords = tuple(np.array([n[i] for n in nodes]) for i in range(3))
-
     vol = np.zeros_like(obj, dtype='uint32')
     vol[node_coords] = obj_id
-    # vol = binary_dilation(vol, iterations=1)
 
     view([raw, obj.astype('uint32'), vol],
          ['raw', 'obj', 'skeleton'])
