@@ -14,8 +14,7 @@ def teasar(obj, resolution, boundary_distances=None,
 
     Arguments:
         obj [np.ndarray] - binary object mask
-        resolution [int, float or list] - size of the voxels in physical units,
-            can be list for anisotropic input (default: None)
+        resolution [list] - size of the voxels in physical unit
         boundary_distances [np.ndarray] - distance to object boundaries
             can be pre-computed for teasar (default: None)
         penalty_scale [float] - scale to weight boundary distance vs.

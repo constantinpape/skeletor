@@ -6,7 +6,7 @@ import skeletor
 from cremi_tools.viewer.volumina import view
 
 
-def fib_single_skeleton(bb=np.s_[:]):
+def fib_single_skeleton(bb=np.s_[:], method='teasar'):
     path = '/g/kreshuk/data/FIB25/training_blocks/raw/raw_block1.h5'
     with h5py.File(path) as f:
         raw = f['data'][bb]
@@ -32,7 +32,7 @@ def fib_single_skeleton(bb=np.s_[:]):
 
     print("Skeletonize ...")
     resolution = 8
-    nodes, edges = skeletor.skeletonize(obj, resolution=resolution)
+    nodes, edges = skeletor.skeletonize(obj, resolution=resolution, method=method)
 
     node_coords = tuple(np.array([n[i] for n in nodes]) for i in range(3))
     vol = np.zeros_like(obj, dtype='uint32')
@@ -74,5 +74,5 @@ def vanilla_kimimaro(bb):
 
 if __name__ == '__main__':
     bb = np.s_[:50]
-    fib_single_skeleton(bb)
+    fib_single_skeleton(bb, method='thinning')
     # vanilla_kimimaro(bb)

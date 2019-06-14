@@ -24,7 +24,7 @@ def read_n5(ds, skel_id):
     n_points = data[0]
     offset = 1
     coord_len = int(3 * n_points)
-    coords = data[offset:offset+coord_len].reshape((n_points, 3))
+    nodes = data[offset:offset+coord_len].reshape((n_points, 3))
     offset += coord_len
     # read number of edges and edges
     n_edges = data[offset]
@@ -32,7 +32,7 @@ def read_n5(ds, skel_id):
     edge_len = int(2 * n_edges)
     assert len(data) == offset + edge_len, "%i, %i" % (len(data), offset + edge_len)
     edges = data[offset:offset+edge_len].reshape((n_edges, 2))
-    return coords, edges
+    return nodes, edges
 
 
 def write_n5(ds, skel_id, nodes, edges, coordinate_offset=None):
@@ -57,7 +57,7 @@ def write_n5(ds, skel_id, nodes, edges, coordinate_offset=None):
 
     # make serialization for number of points and coordinates
     n_points = nodes.shape[0]
-    data = [np.array([n_points]), coords.flatten()]
+    data = [np.array([n_points]), nodes.flatten()]
 
     # add number of edges and edges to the serialization
     n_edges = len(edges)
