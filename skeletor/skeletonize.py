@@ -16,7 +16,7 @@ def get_method_params(name):
 
 
 def skeletonize(obj, resolution=None, boundary_distances=None,
-                method='teasar', **method_params):
+                method='thinning', **method_params):
     """ Skeletonize object defined by binary mask.
 
     Arguments:

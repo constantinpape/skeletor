@@ -1,5 +1,8 @@
-import edt
-from kimimaro.trace import trace
+try:
+    import edt
+    from kimimaro.trace import trace
+except ImportError:
+    edt = trace = None
 
 
 # TODO kmimario trace has some more parameters, mainly for soma detection
@@ -23,6 +26,9 @@ def teasar(obj, resolution, boundary_distances=None,
         mask_scale [float] - multiple of boundary distance used in path masking (default: 10)
         mask_min_radius [float] - minimal radius used in path masking (default: 50)
     """
+    if trace is None:
+        raise RuntimeError("Teasar skeletonization is not available, because kimimaro could not be imported")
+
     # check if the boundary distances were pre-computed
     if boundary_distances is None:
         boundary_distances = edt.edt(obj, anisotropy=resolution,

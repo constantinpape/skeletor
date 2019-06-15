@@ -1,6 +1,5 @@
 import numpy as np
 from skimage.morphology import skeletonize_3d
-# TODO check if skan does the job, otherwise need to reimplement skeleton -> graph
 from skan import csr
 
 
