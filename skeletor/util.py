@@ -1,12 +1,25 @@
 import numpy as np
 import nifty
 
+#
+# some of these functions might be slow in pure python
+# could put it into C++ (in nifty?)
+#
 
-# TODO implement in C++ if this becomes a bottleneck
-def simplify_skeleton(edges):
+
+def edges_to_graph(edges):
     n_nodes = int(edges.max()) + 1
     graph = nifty.graph.undirectedGraph(n_nodes)
     graph.insertEdges(edges)
+    return graph, n_nodes
+
+
+def simplify_skeleton(edges):
+    """ Simplify skeleton edges to paths from terminal nodes to junctions/
+    from junctions to junctions.
+    """
+
+    graph, n_nodes = edges_to_graph(edges)
 
     degrees = [len([adj for adj in graph.nodeAdjacency(u)])
                for u in range(n_nodes)]
@@ -37,7 +50,6 @@ def simplify_skeleton(edges):
             visited[u] = 2  # set node to visited
             # iterate over ngbs
             for adj in graph.nodeAdjacency(u):
-                # TODO
                 v = adj[0]
                 if visited[v]:
                     continue
@@ -48,7 +60,6 @@ def simplify_skeleton(edges):
             path_nodes.append(np.array(this_nodes))
             # iterate over ngbs
             for adj in graph.nodeAdjacency(u):
-                # TODO
                 v = adj[0]
                 if visited[v]:
                     continue
@@ -56,3 +67,43 @@ def simplify_skeleton(edges):
 
     paths = np.array(paths, dtype='uint64')
     return paths, path_nodes
+
+
+def dfs(graph, node, parent, visited_nodes):
+    """ Depth-first search starting from node to check whether it
+        can be reached via cycle in graph.
+    """
+    visited_nodes.append(node)
+    # iterate over all neighbors of the current node
+    for adj in graph.nodeAdjacency(node):
+        ngb = adj[0]
+        # if this is the parent of the current node, continue
+        if ngb == parent:
+            continue
+        # if this node was already visited, we have found a cycle
+        if ngb in visited_nodes:
+            return True
+        # perform dfs search starting from ngb node
+        if dfs(graph, ngb, node, visited_nodes):
+            return True
+
+
+def has_cycle(edges):
+    """ Check if graph defined by given skeleton edges has a cycle
+    """
+    graph, n_nodes = edges_to_graph(edges)
+
+    visited_nodes = []
+    for node in range(n_nodes):
+        if node in visited_nodes:
+            continue
+        if dfs(graph, node, -1, visited_nodes):
+            return True
+    return False
+
+
+# TODO
+def is_connected(edges):
+    """ Check if graph defined by given skeleton edges is connected
+    """
+    pass
