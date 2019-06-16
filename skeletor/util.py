@@ -1,5 +1,6 @@
 import numpy as np
 import nifty
+from scipy.ndimage.morphology import binary_dilation
 
 #
 # some of these functions might be slow in pure python
@@ -25,48 +26,47 @@ def simplify_skeleton(edges):
                for u in range(n_nodes)]
     visited = np.zeros(n_nodes, dtype='bool')
 
-    # start with a junction
+    # node queue to  build paths
+
+    queue = []
+    # start with first junction and put all its neighbors on the queue
     u = np.where(degrees > 2)[0][0]
-    queue = [(u, u, [])]
+    visited[u] = 1
+    for adj in graph.nodeAdjacency(u):
+        queue.append((adj[0], [u]))
 
     paths = []
-    path_nodes = []
     while queue:
         # get current node
-        u, start_node, this_nodes = queue.pop()
+        u, path = queue.pop()
         if visited[u]:
             continue
         visited[u] = 1
         degree = degrees[u]
-        this_nodes.append(u)
+        path.append(u)
 
         # check what kind of node and take appropriate actions:
         # terminal node -> end current path
         if degree == 1:
-            paths.append([start_node, u])
-            path_nodes.append(np.array(this_nodes))
+            paths.append(path)
         # intermediate path node -> put next node on the queue
         elif degree == 2:
-            visited[u] = 2  # set node to visited
             # iterate over ngbs
             for adj in graph.nodeAdjacency(u):
                 v = adj[0]
                 if visited[v]:
                     continue
-                queue.append((v, start_node, this_nodes))
+                queue.append((v, path))
         # junction node -> end current path and put next nodes on the queue
         else:
-            paths.append([start_node, u])
-            path_nodes.append(np.array(this_nodes))
+            paths.append(path)
             # iterate over ngbs
             for adj in graph.nodeAdjacency(u):
                 v = adj[0]
                 if visited[v]:
                     continue
-                queue.append((v, u, []))
-
-    paths = np.array(paths, dtype='uint64')
-    return paths, path_nodes
+                queue.append((v, [u]))
+    return paths
 
 
 def dfs(graph, node, parent, visited_nodes):
@@ -107,3 +107,12 @@ def is_connected(edges):
     """ Check if graph defined by given skeleton edges is connected
     """
     pass
+
+
+def nodes_to_volume(shape, nodes, dilate_by=0, dtype='uint32'):
+    vol = np.zeros(shape, dtype=dtype)
+    node_coords = tuple(np.array([n[i] for n in nodes]) for i in range(3))
+    vol[node_coords] = 1
+    if dilate_by > 0:
+        vol = binary_dilation(vol, iterations=dilate_by).astype(dtype)
+    return vol
