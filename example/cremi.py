@@ -1,41 +1,61 @@
 import h5py
 import numpy as np
-import vigra
+
+# FIXME something is wrong with ndimage.label here
+# from scipy.ndimage import label
+from vigra.analysis import labelVolume
 
 import skeletor
 from cremi_tools.viewer.volumina import view
 
 
-def cremi_single_skeleton(bb=np.s_[:]):
+def skeletonize_largest_object(bb=np.s_[:], methods=['thinning'], prune=False):
+    # cremi data, download from
+    # https://cremi.org/
     path = '/g/kreshuk/data/cremi/original/sample_A_20160501.hdf'
+
     print("Load volume ...")
     with h5py.File(path) as f:
         seg = f['volumes/labels/neuron_ids'][bb]
         raw = f['volumes/raw'][bb]
 
     print("Extract largest object ...")
-    seg = vigra.analysis.labelVolume(seg.astype('uint32'))
+    # FIXME
+    # seg, _ = label(seg)
+    seg = labelVolume(seg.astype('uint32'))
     ids, sizes = np.unique(seg, return_counts=True)
     obj = seg == ids[np.argmax(sizes)]
     bb = np.where(obj)
     bb = tuple(slice(int(b.min()),
                      int(b.max()) + 1) for b in bb)
-    seg = seg[bb]
     obj = obj[bb]
     raw = raw[bb]
 
-    print("Skeletonize with teasar ...")
+    data = [raw, obj.astype('uint32')]
+    labels = ['raw', 'objects']
+
+    # resolution of the cremi data in nm
     resolution = [40, 4, 4]
-    nodes, edges = skeletor.skeletonize(obj, resolution=resolution)
+    # minimal path length used for pruning in nm
+    min_path_len = 250
 
-    node_coords = tuple(np.array([n[i] for n in nodes]) for i in range(3))
-    vol = np.zeros_like(obj, dtype='uint32')
-    vol[node_coords] = 1
+    for method in methods:
+        print("Skeletonize with", method, "...")
+        nodes, edges = skeletor.skeletonize(obj, resolution=resolution)
+        vol = skeletor.nodes_to_volume(obj.shape, nodes, dilate_by=1)
+        data.append(vol)
+        labels.append('skeleton-%s' % method)
 
-    view([raw, obj.astype('uint32'), vol],
-         ['raw', 'obj', 'skeleton'])
+        if prune:
+            nodes, edges = skeletor.prune(obj, nodes, edges,
+                                          resolution, min_path_len)
+            vol = skeletor.nodes_to_volume(obj.shape, nodes, dilate_by=1)
+            data.append(vol)
+            labels.append('skeleton-%s-pruned' % method)
+
+    view(data, labels)
 
 
 if __name__ == '__main__':
-    bb = np.s_[:50]
-    cremi_single_skeleton(bb)
+    bb = np.s_[:25, :256, :256]
+    skeletonize_largest_object(bb, methods=['thinning'], prune=True)
