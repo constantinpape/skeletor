@@ -22,8 +22,8 @@ def simplify_skeleton(edges):
 
     graph, n_nodes = edges_to_graph(edges)
 
-    degrees = [len([adj for adj in graph.nodeAdjacency(u)])
-               for u in range(n_nodes)]
+    degrees = np.array([len([adj for adj in graph.nodeAdjacency(u)])
+                        for u in range(n_nodes)])
     visited = np.zeros(n_nodes, dtype='bool')
 
     # node queue to  build paths
