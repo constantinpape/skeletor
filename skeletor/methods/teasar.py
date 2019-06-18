@@ -1,19 +1,10 @@
-try:
-    import edt
-    from kimimaro.trace import trace
-except ImportError:
-    edt = trace = None
-
-
-# TODO kmimario trace has some more parameters, mainly for soma detection
-# for now, I leave it at the defaults, but would be nice to enable setting this
 def teasar(obj, resolution, boundary_distances=None,
            penalty_scale=100000, penalty_exponent=4,
            mask_scale=10, mask_min_radius=50):
     """
     Skeletonize object with teasar.
 
-    Wrapper around implementation from https://github.com/seung-lab/kimimaro.
+    Not implemented yet.
 
     Arguments:
         obj [np.ndarray] - binary object mask
@@ -26,21 +17,18 @@ def teasar(obj, resolution, boundary_distances=None,
         mask_scale [float] - multiple of boundary distance used in path masking (default: 10)
         mask_min_radius [float] - minimal radius used in path masking (default: 50)
     """
-    if trace is None:
-        raise RuntimeError("Teasar skeletonization is not available, because kimimaro could not be imported")
+    raise NotImplementedError("Teaser skeletonization is not implemented yet")
 
     # check if the boundary distances were pre-computed
     if boundary_distances is None:
-        boundary_distances = edt.edt(obj, anisotropy=resolution,
-                                     black_border=False, order='C', parallel=1)
+        # TODO
+        boundary_distances = ''
 
     # mask the boundary distances that are outside of the object
     boundary_distances = (boundary_distances * obj).astype('float32')
 
+    # TODO
     # compute the skeleton
-    skel = trace(obj, boundary_distances, scale=mask_scale, const=mask_min_radius,
-                 anisotropy=resolution, pdrf_scale=penalty_scale, pdrf_exponent=penalty_exponent)
+    nodes, edge = None, None
 
-    # return the node coordinate list and the edges from the skeleton
-    nodes = skel.vertices
-    return nodes.astype('uint64'), skel.edges
+    return nodes, edges

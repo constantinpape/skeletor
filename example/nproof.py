@@ -42,37 +42,6 @@ def fib_single_skeleton(bb=np.s_[:], method='teasar'):
          ['raw', 'obj', 'skeleton'])
 
 
-def vanilla_kimimaro(bb):
-    from kimimaro import skeletonize
-    path = '/g/kreshuk/data/FIB25/training_blocks/gt/gt_block1.h5'
-    with h5py.File(path) as f:
-        seg = f['data'][bb]
-
-    mask = (seg == 363).astype('uint32')
-    print(np.sum(mask))
-
-    print("Start skeletonize ...")
-    voxel_size = [8, 8, 8]
-    skels = skeletonize(seg, anisotropy=voxel_size, parallel=8, fix_borders=False)
-    print(type(skels))
-
-    vol = np.zeros_like(seg, dtype='uint32')
-    for seg_id, skel in skels.items():
-        nodes = skel.vertices
-        nodes /= np.array(voxel_size)
-        nodes = nodes.astype('uint32')
-        node_coords = tuple(np.array([n[i] for n in nodes]) for i in range(3))
-
-        vol[node_coords] = seg_id
-
-    path = '/g/kreshuk/data/FIB25/training_blocks/raw/raw_block1.h5'
-    with h5py.File(path) as f:
-        raw = f['data'][bb]
-
-    view([raw, seg, vol, mask])
-
-
 if __name__ == '__main__':
     bb = np.s_[:50]
     fib_single_skeleton(bb, method='thinning')
-    # vanilla_kimimaro(bb)

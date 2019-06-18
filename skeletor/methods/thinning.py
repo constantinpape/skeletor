@@ -5,9 +5,10 @@ from skan import csr
 
 def thinning(obj, resolution, *args, **kwargs):
     """
-    Skeletonize object with teasar.
+    Skeletonize object with thinning based method.
 
-    Wrapper around implementation from https://github.com/seung-lab/kimimaro.
+    Wrapper around implementation from
+    https://scikit-image.org/docs/dev/api/skimage.morphology.html#skimage.morphology.skeletonize_3d
 
     Arguments:
         obj [np.ndarray] - binary object mask

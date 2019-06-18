@@ -3,18 +3,9 @@ import numpy as np
 from scipy.ndimage import find_objects
 from .skeletonize import skeletonize, get_method_names, get_method_params
 
-try:
-    import edt
-except ImportError:
-    edt = None
-
 
 def compute_boundary_distances(segmentation, resolution, n_threads):
-    if edt is None:
-        raise RuntimeError("Teasar skeletonization is not available, because kimimaro could not be imported")
-    boundary_distances = edt.edt(segmentation, anisotropy=resolution,
-                                 black_border=False, order='C', parallel=n_threads)
-    return boundary_distances
+    raise NotImplementedError("Boundary distance transform calculation is not implemented")
 
 
 def apply_mask(segmentation, object_ids, in_place):
